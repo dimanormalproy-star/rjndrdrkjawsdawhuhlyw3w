@@ -167,7 +167,17 @@ getgenv().filtergc = newcclosure(function(filterType, filterOptions, returnOne)
                             end
                         end
                         for _, upval in filterOptions.Upvalues do
-                            if not table.find(funcUpvals, upval) then
+                            local found = false
+                            for _, funcUpval in ipairs(funcUpvals) do
+                                if typeof(upval) == "number" and typeof(funcUpval) == "number" and upval ~= upval and funcUpval ~= funcUpval then
+                                    found = true
+                                    break
+                                elseif funcUpval == upval then
+                                    found = true
+                                    break
+                                end
+                            end
+                            if not found then
                                 passed = false
                                 break
                             end
@@ -15691,4 +15701,5 @@ end)
 
 
 getgenv().decompile = DecompilerKonstant
+
 
