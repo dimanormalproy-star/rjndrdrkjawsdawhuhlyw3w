@@ -15687,4 +15687,5 @@ local function v4346(v1127, v1128) --[[ Line: 3102 ]] --[[ Name: decompile_bytec
 	return v4356(ByteCode)
 end)
 
+
 getgenv().decompile = DecompilerKonstant
