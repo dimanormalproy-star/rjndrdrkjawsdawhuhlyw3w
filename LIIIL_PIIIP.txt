@@ -46,8 +46,10 @@ getgenv().filtergc = newcclosure(function(filterType, filterOptions, returnOne)
                 end
             end
             if filterOptions.KeyValuePairs and typeof(filterOptions.KeyValuePairs) == "table" and passed then
-                for key, value in filterOptions.KeyValuePairs do
-                    if rawget(v, key) ~= value then
+                for key, value in pairs(filterOptions.KeyValuePairs) do
+                    local tableValue = rawget(v, key)
+                    if typeof(value) == "number" and typeof(tableValue) == "number" and value ~= value and tableValue ~= tableValue then
+                    elseif tableValue ~= value then
                         passed = false
                         break
                     end
@@ -15689,3 +15691,4 @@ end)
 
 
 getgenv().decompile = DecompilerKonstant
+
