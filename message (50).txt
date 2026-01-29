@@ -1,22 +1,24 @@
 
 getgenv().filtergc = newcclosure(function(filterType, filterOptions, returnOne)
-	local matches = {}
+    local matches = {}
 
+    if filterType == nil or filterOptions == nil then
+        error("Expected filterType and filterOptions, got nil")
+    end
+    
     if typeof(filterType) == "function" then
-        local matches = {}
-        
         for i, v in getgc(true) do
             local success, passed = pcall(filterType, v)
             if success and passed then
-				if returnOne then
-					return v
-				else
-                	table.insert(matches, v)
-				end
+                if returnOne then
+                    return v
+                else
+                    table.insert(matches, v)
+                end
             end
         end
-
-	elseif filterType == "table" then
+        
+    elseif filterType == "table" then
         for i, v in getgc(true) do
             if typeof(v) ~= "table" then
                 continue
@@ -25,7 +27,7 @@ getgenv().filtergc = newcclosure(function(filterType, filterOptions, returnOne)
             local passed = true
             
             if filterOptions.Keys and typeof(filterOptions.Keys) == "table" and passed then
-                for _, key in filterOptions.Keys do
+                for _, key in ipairs(filterOptions.Keys) do
                     if rawget(v, key) == nil then
                         passed = false
                         break
@@ -38,13 +40,24 @@ getgenv().filtergc = newcclosure(function(filterType, filterOptions, returnOne)
                 for _, value in next, v do
                     table.insert(tableVals, value)
                 end
-                for _, value in filterOptions.Values do
-                    if not table.find(tableVals, value) then
+                for _, value in ipairs(filterOptions.Values) do
+                    local found = false
+                    for _, tableVal in ipairs(tableVals) do
+                        if typeof(value) == "number" and typeof(tableVal) == "number" and value ~= value and tableVal ~= tableVal then
+                            found = true
+                            break
+                        elseif tableVal == value then
+                            found = true
+                            break
+                        end
+                    end
+                    if not found then
                         passed = false
                         break
                     end
                 end
             end
+            
             if filterOptions.KeyValuePairs and typeof(filterOptions.KeyValuePairs) == "table" and passed then
                 for key, value in pairs(filterOptions.KeyValuePairs) do
                     local tableValue = rawget(v, key)
@@ -79,25 +92,23 @@ getgenv().filtergc = newcclosure(function(filterType, filterOptions, returnOne)
             filterOptions.IgnoreExecutor = true
         end
         
-        for i, v in getgc(false) do
+        for i, v in getgc(true) do
             if typeof(v) ~= "function" then
                 continue
             end
             
             local passed = true
             local isCClosure = iscclosure(v)
-
+            
             if filterOptions.Name and passed then
                 local success, funcName = pcall(function()
-                    return debug.info(v, "n")
+                    return debug.getinfo(v, "n").name
                 end)
 
-                if success and funcName then
+                if success and funcName and funcName ~= "" then
                     passed = funcName == filterOptions.Name
                 else
-                    local success2, funcString = pcall(function()
-                        return tostring(v)
-                    end)
+                    local success2, funcString = pcall(tostring, v)
                     if success2 and funcString then
                         passed = string.find(funcString, filterOptions.Name) ~= nil
                     else
@@ -107,23 +118,17 @@ getgenv().filtergc = newcclosure(function(filterType, filterOptions, returnOne)
             end
             
             if filterOptions.IgnoreExecutor == true and passed then
-                local success, isExec = pcall(function() return isexecutorclosure(v) end)
+                local success, isExec = pcall(isexecutorclosure, v)
                 if success then
                     passed = not isExec
                 else
                     passed = true
                 end
             end
-
-            if isCClosure and (filterOptions.Hash or filterOptions.Constants or filterOptions.Upvalues) then
-                passed = false
-            end
-
+            
             if not isCClosure and passed then
                 if filterOptions.Hash and passed then
-                    local success, hash = pcall(function()
-                        return getfunctionhash(v) or ""
-                    end)
+                    local success, hash = pcall(getfunctionhash, v)
                     if success and hash then
                         passed = hash == filterOptions.Hash
                     else
@@ -133,18 +138,27 @@ getgenv().filtergc = newcclosure(function(filterType, filterOptions, returnOne)
                 
                 if filterOptions.Constants and typeof(filterOptions.Constants) == "table" and passed then
                     local success, constants = pcall(function()
-                        return debug.getconstants(v) or {}
+                        return debug.getconstants(v)
                     end)
 
                     if success and constants then
                         local funcConsts = {}
-                        for idx, constant in constants do
-                            if constant ~= nil then
-                                table.insert(funcConsts, constant)
-                            end
+                        for idx, constant in ipairs(constants) do
+                            table.insert(funcConsts, constant)
                         end
-                        for _, constant in filterOptions.Constants do
-                            if not table.find(funcConsts, constant) then
+                        
+                        for _, constant in ipairs(filterOptions.Constants) do
+                            local found = false
+                            for _, funcConst in ipairs(funcConsts) do
+                                if typeof(constant) == "number" and typeof(funcConst) == "number" and constant ~= constant and funcConst ~= funcConst then
+                                    found = true
+                                    break
+                                elseif funcConst == constant then
+                                    found = true
+                                    break
+                                end
+                            end
+                            if not found then
                                 passed = false
                                 break
                             end
@@ -156,17 +170,16 @@ getgenv().filtergc = newcclosure(function(filterType, filterOptions, returnOne)
                 
                 if filterOptions.Upvalues and typeof(filterOptions.Upvalues) == "table" and passed then
                     local success, upvalues = pcall(function()
-                        return debug.getupvalues(v) or {}
+                        return debug.getupvalues(v)
                     end)
 
                     if success and upvalues then
                         local funcUpvals = {}
-                        for idx, upval in upvalues do
-                            if upval ~= nil then
-                                table.insert(funcUpvals, upval)
-                            end
+                        for idx, upval in ipairs(upvalues) do
+                            table.insert(funcUpvals, upval)
                         end
-                        for _, upval in filterOptions.Upvalues do
+                        
+                        for _, upval in ipairs(filterOptions.Upvalues) do
                             local found = false
                             for _, funcUpval in ipairs(funcUpvals) do
                                 if typeof(upval) == "number" and typeof(funcUpval) == "number" and upval ~= upval and funcUpval ~= funcUpval then
@@ -186,6 +199,8 @@ getgenv().filtergc = newcclosure(function(filterType, filterOptions, returnOne)
                         passed = false
                     end
                 end
+            elseif isCClosure and (filterOptions.Hash or filterOptions.Constants or filterOptions.Upvalues) then
+                passed = false
             end
             
             if passed then
@@ -198,12 +213,11 @@ getgenv().filtergc = newcclosure(function(filterType, filterOptions, returnOne)
         end
         
     else
-        error("Expected type 'function' or 'table', got '" .. tostring(filterType) .. "'")
+        error("Expected filterType 'function' (as filter) or 'table' or 'function' (as type), got '" .. tostring(filterType) .. "'")
     end
     
     return returnOne and nil or matches
 end)
-
 
 
 --!native
@@ -15701,5 +15715,6 @@ end)
 
 
 getgenv().decompile = DecompilerKonstant
+
 
 
