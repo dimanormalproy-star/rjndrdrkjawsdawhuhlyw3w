@@ -1,6 +1,24 @@
+local callbacks = setmetatable({}, {__mode = "k"})
 
+getgenv().getcallbackvalue = function(obj, prop)
+    if prop == "OnInvoke" then
+        return callbacks[obj]
+    end
+    return nil
+end
 
+local mt = getrawmetatable(Instance.new("BindableFunction"))
+local oldNewIndex = mt.__newindex
+setreadonly(mt, false)
 
+mt.__newindex = function(self, key, value)
+    if key == "OnInvoke" then
+        callbacks[self] = value
+    end
+    return oldNewIndex(self, key, value)
+end
+
+setreadonly(mt, true)
 
 --!native
 local DecompilerKonstant = (function(ByteCode)
@@ -15497,6 +15515,7 @@ end)
 
 
 getgenv().decompile = DecompilerKonstant
+
 
 
 
